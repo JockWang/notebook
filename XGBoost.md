@@ -58,9 +58,23 @@ $$L(c+f_{i+1(x)})\approx L(c)+L^{’}(c)f_{i+1(x)}=L(c)-L^{’}(c)^2<L(c)$$
 
 就有了$f_{i+1(x)}=-1*L^{’}(c)$，即$-[\frac{\partial L(y_i,f_(x_i)}{\partial f_{x_i}}]$，于是就产生了梯度提升树。
 
-## XGBoost推导
+## XGBoost
 
 XGBoost与GBDT有两点差异，**XGBoost的导数不是一阶的，而是二阶的**；还进行了正则项进行了改进，**XGBoost的剪枝在对叶子的个数做惩罚的同时还加入了权重惩罚**。
+
+### XGBoost的二阶梯度
+
+$$L(x+\delta x)\approx L(x)+L'(x)\delta x+\frac{1}{2}L''(x)\delta x^2=L(x)-\frac{1}{2}\frac{L'(x)^2}{L''(x)}<L(x)$$;
+
+其中$\delta x=-\frac{L'(x)}{L''(x)}$
+
+### XGBoost的正则项
+
+GBDT为了控制树的复杂度会对树的叶子数进行正则控制，XGBoost不仅把叶子数加入正则，还把每个叶子节点的权重加入了正则。
+
+$$Loss=\sum^N_{i=1}L(y_i,F_{(x_i)}+\Omega(F))，其中，\Omega(F)=\gamma\sum^M_{i=1}T_i+\frac{1}{2}\lambda\sum_iw_i^2$$
+
+T表示叶子节点的个数，w表示这个叶子节点的权重。
 
 ## 参数说明
 
@@ -277,9 +291,52 @@ print('Best score:',cv.best_score_)
 
 ![最终结果](./xgboost/4.png)
 
+总结一下调参步骤:
+
+1. 定义初始变量，首先选定初始learning_rate，确定迭代次数；
+2. GridSearchCV调整max_depth和min_child_weight；
+3. 调整gamma值；
+4. 调整subsample、colsample_bytree和colsample_bylevel；
+5. 调整alpha、lambda；
+6. 重新调整learning_rate，重新确定迭代次数；
+
 ## GBDT、XGBoost、LightGBM对比
 
+**GBDT**
+
+* 可以灵活处理各种数据，简单调整即可有不错的结果；
+* GBDT是Boosting的，很难并行训练数据；
+
+**XGBoost**
+
+* XGBoost支持多样，并加入了正则项，支持shrinkage缩减（相当于学习率），增加了列抽样来防止过拟合，能够处理缺失值，并且支持并行；
+* level-wise的建树方式对一层中所有叶子节点一视同仁，有些叶子节点影响并不大，加重了计算，还有就是预排序会消耗很大空间，且要保存特征的排序索引，消耗很多时间，计算量大；
+
+**LightGBM**
+
+* 内存和计算上相对XGBoost有明显优势，支持多线程优化，支持直接输入类别特征；
+* leaf-wise的建树策略很容易过拟合，需要限制最大深度；
+
 ## 常见问题
+
+**XGBoost防止过拟合的方法**
+
+* 目标函数添加了正则项，包括叶子节点个数、叶子节点的权重；
+* 列抽样，即在训练的过程中只使用一部分特征；
+* 子采样，即每轮计算可以不适用全部样本；
+* shrinkage，即学习率，为后面的训练开辟更多学习空间；
+
+**XGBoost中的一棵树停止生长的条件**
+
+* 一次新的分裂的节点Gain指数小于0时，放弃这次分裂；
+* 当达到醉倒树深时；
+* 一次分裂后，重新计算新生成的左右叶子节点的样本权重和，如果叶子节点的样本权重小于阈值，放弃这次分裂；
+
+**XGBoost如何对树进行剪枝**
+
+* 目标函数加入正则项；
+* 引入一个阈值，当分裂后增益低于该值，则不分裂；
+* 先自定到底建树，后自地向顶检查是否满足分裂条件，进行剪枝；
 
 ## 参考
 
@@ -287,3 +344,5 @@ print('Best score:',cv.best_score_)
 * https://blog.csdn.net/u013709270/article/details/78156207
 * https://juejin.im/post/5b7669c4f265da281c1fbf96
 * [https://github.com/dayeren/Kaggle_Competition_Treasure/blob/master/Models/XGBoost/XGBoost_%E5%8E%9F%E7%90%86%E8%AE%B2%E8%A7%A3.ipynb](https://github.com/dayeren/Kaggle_Competition_Treasure/blob/master/Models/XGBoost/XGBoost_原理讲解.ipynb)
+* https://blog.csdn.net/data_scientist/article/details/79022025
+* https://mp.weixin.qq.com/s/_NCKAon-megJbxzV6w3aYg
