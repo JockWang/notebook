@@ -28,9 +28,39 @@ CART，分类与回归树 Classification and Regression Tree，从名字就可�
 
 在整个属性集合中，会选择使得划分后基尼指数最小的那个属性作为最优的分割属性。
 
-### 梯度提升树
+## 梯度提升树
 
-Boosting的思想即是“三个臭皮匠顶过一个诸葛亮”，将多个弱分类器转化为强分类器。在结合到决策树就得到了提升数Boosting Tree。
+Boosting的思想即是“三个臭皮匠赛过一个诸葛亮”，将多个弱分类器转化为强分类器。这需要怎么做呢？最简单的方法就是将多个分类器的结果进行加权。再结合到决策树就得到了提升数Boosting Tree。
+
+以损失函数MSE为例，$min\frac{1}{N}(y-F_{(x)})^2$，对于过个不同参数的弱分类器，无法使用传统的梯度下降直接优化，故有
+
+对于第一个弱分类器，我们的目标是$min(y-f_{1(x)})^2$；
+
+对于第二个弱分类器，我们的目标是$min(y-f_{1(x)}-f_{2(x)})^2$；
+
+对于第t个弱分类器，我们的目标是$min(y-f_{1(x)}-f_{2(x)}-...-f_{t(x)})^2$；
+
+那么，对于第t+1个弱分类器，我们的目标是$min(y-f_{1(x)}-f_{2(x)}-...-f_{t(x)}-f_{t+1(x)})^2$，令$y-\sum^t_{i=1}f_{i(x)}$为r，则有
+
+$$(y-\sum^t_{i=1}f_{i(x)}-f_{i+1(x)})^2 =(r-f_{i+1(x)})^2<(y-\sum^t_{i=1}f_{i(x)})^2$$
+
+即，$L(y,\sum^t_(i=1)f_{(x)}+f_{i+1(x)})<L(y,\sum^t_{i=1}f_{(x)})$
+
+这就得到了提升树算法。
+
+虽然这样能解决优化问题，但是对于其他一些损失函数，这种方法并不是很友好，有些情况下很难再去进行残差拟合了，所以就有了梯度提升树。重新回到我们的目标，最小化$L(y,F_{(x)})$，似乎我们只要$L(y,\sum^t_{i=1}f_{i(x)}+f_{i+1(x)})$比$L(y,\sum^t_{i=1}f_{(x)})$小就可以了。那么就可以重新定义损失函数为：
+
+$$max[L(y,\sum^t_{i=1}f_{(x)})-L(y,\sum^t_{i=1}f_{i(x)}+f_{i+1(x)})]$$
+
+令$c=\sum^t_{i=1}f_{i(x)}$，由泰勒公式的二阶展开可以有：
+
+$$L(c+f_{i+1(x)})\approx L(c)+L^{’}(c)f_{i+1(x)}=L(c)-L^{’}(c)^2<L(c)$$
+
+就有了$f_{i+1(x)}=-1*L^{’}(c)$，即$-[\frac{\partial L(y_i,f_(x_i)}{\partial f_{x_i}}]$，于是就产生了梯度提升树。
+
+## XGBoost推导
+
+XGBoost与GBDT有两点差异，**XGBoost的导数不是一阶的，而是二阶的**；还进行了正则项进行了改进，**XGBoost的剪枝在对叶子的个数做惩罚的同时还加入了权重惩罚**。
 
 ## 参数说明
 
@@ -247,8 +277,6 @@ print('Best score:',cv.best_score_)
 
 ![最终结果](./xgboost/4.png)
 
-## 模型推导
-
 ## GBDT、XGBoost、LightGBM对比
 
 ## 常见问题
@@ -258,6 +286,4 @@ print('Best score:',cv.best_score_)
 * https://xgboost.apachecn.org/#/
 * https://blog.csdn.net/u013709270/article/details/78156207
 * https://juejin.im/post/5b7669c4f265da281c1fbf96
-
-
-
+* [https://github.com/dayeren/Kaggle_Competition_Treasure/blob/master/Models/XGBoost/XGBoost_%E5%8E%9F%E7%90%86%E8%AE%B2%E8%A7%A3.ipynb](https://github.com/dayeren/Kaggle_Competition_Treasure/blob/master/Models/XGBoost/XGBoost_原理讲解.ipynb)
